@@ -5,7 +5,6 @@
 		<title>Draw GeoJSON points</title>
 		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
 		<script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js"></script>
-		<script src="http://wzrd.in/standalone/uuid%2Fv4@latest"></script>
 		<link href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css" rel="stylesheet" />
 		<style>
 			body {
@@ -102,6 +101,22 @@
 				getData().then(mapData => {
 					// If map is here, then first render is complete
 					if (map) {
+						// Delete the previous data to reduce UI lag
+						mapData.forEach(x => {
+							if (map.getLayer(x.id + '-color')) {
+								map.removeLayer(x.id + '-color')
+							}
+							if (map.getLayer(x.id + '-text')) {
+								map.removeLayer(x.id + '-text')
+							}
+
+							if (map.getSource(x.id + '-color')) {
+								map.removeSource(x.id + '-color')
+							}
+							if (map.getSource(x.id + '-text')) {
+								map.removeSource(x.id + '-text')
+							}
+						})
 						// Redraw map after 5sec interval
 						const currentZoom = map.getZoom()
 						drawMap(currentZoom, mapData)
@@ -114,7 +129,7 @@
 					// Add Color
 					if (state.properties.bgColor) {
 						map.addLayer({
-							id: uuidv4(),
+							id: state.id + '-color',
 							type: 'fill',
 							source: {
 								type: 'geojson',
@@ -132,7 +147,7 @@
 						const extension =
 							zoom < 4 ? state.properties.short.toString() : state.properties.name.toString()
 						map.addLayer({
-							id: uuidv4(),
+							id: state.id + '-text',
 							type: 'symbol',
 							source: {
 								type: 'geojson',
