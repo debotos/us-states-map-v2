@@ -26,7 +26,7 @@
 			id="loading"
 			style="height: 100vh; display: flex; justify-content: center; align-items: center;"
 		>
-			<img src="./loading.gif" height="250" width="250" />
+			<img src="./loading.gif" width="400" />
 		</div>
 		<script>
 			mapboxgl.accessToken =
@@ -38,7 +38,7 @@
 				map = new mapboxgl.Map({
 					container: 'map',
 					style: 'mapbox://styles/mapbox/light-v10',
-					center: [-87.6500523, 41.850033], // US
+					center: [-97.508469, 35.481918], // Oklahoma City, US
 					zoom: 4
 				})
 			}
@@ -47,48 +47,50 @@
 				element.style.display = 'none'
 			}
 
-			fetch('http://sample-api.dx.am/')
-				.then(response => response.json())
-				.then(data => {
-					// console.log('API Response: ', data)
-					const statesName = data.map(x => x.name.toString().toLowerCase())
+			setInterval(() => {
+				fetch('http://sample-api.dx.am/')
+					.then(response => response.json())
+					.then(data => {
+						// console.log('API Response: ', data)
+						const statesName = data.map(x => x.name.toString().toLowerCase())
 
-					const result = US_STATES_DATA.filter(x => {
-						const name = x.properties.name.toString().toLowerCase()
-						return statesName.includes(name)
-					})
+						const result = US_STATES_DATA.filter(x => {
+							const name = x.properties.name.toString().toLowerCase()
+							return statesName.includes(name)
+						})
 
-					const resultWithSugar = result.map(x => {
-						const sugar = data.find(
-							item =>
-								item.name.toString().toLowerCase() === x.properties.name.toString().toLowerCase()
-						)
-						return {
-							...x,
-							properties: {
-								...x.properties,
-								...sugar,
-								bgColor: sugar.bgColor ? sugar.bgColor : 'cornflowerblue',
-								textColor: sugar.textColor ? sugar.textColor : '#fff'
+						const resultWithSugar = result.map(x => {
+							const sugar = data.find(
+								item =>
+									item.name.toString().toLowerCase() === x.properties.name.toString().toLowerCase()
+							)
+							return {
+								...x,
+								properties: {
+									...x.properties,
+									...sugar,
+									bgColor: sugar.bgColor ? sugar.bgColor : 'cornflowerblue',
+									textColor: sugar.textColor ? sugar.textColor : '#fff'
+								}
 							}
-						}
-					})
+						})
 
-					// console.log(resultWithSugar)
-					// Init map
-					init()
-					// Draw map
-					map.on('load', function() {
-						const currentZoom = map.getZoom()
-						drawMap(currentZoom, resultWithSugar)
+						// console.log(resultWithSugar)
+						// Init map
+						init()
+						// Draw map
+						map.on('load', function() {
+							const currentZoom = map.getZoom()
+							drawMap(currentZoom, resultWithSugar)
+						})
+						// Hide loading
+						hideLoading()
 					})
-					// Hide loading
-					hideLoading()
-				})
-				.catch(function(error) {
-					// API server returns any errors
-					console.log(error)
-				})
+					.catch(function(error) {
+						// API server returns any errors
+						console.log(error)
+					})
+			}, 5000)
 
 			function drawMap(zoom, states) {
 				states.map((state, i) => {
