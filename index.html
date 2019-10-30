@@ -5,6 +5,7 @@
 		<title>Draw GeoJSON points</title>
 		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
 		<script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js"></script>
+		<script src="http://wzrd.in/standalone/uuid%2Fv4@latest"></script>
 		<link href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css" rel="stylesheet" />
 		<style>
 			body {
@@ -33,6 +34,7 @@
 				'pk.eyJ1IjoiZGVib3RvcyIsImEiOiJjanpmYXh0amYwYWhlM2pvNTdtamVtbXlqIn0.00E9hzDuT2nyeHF4LMlQAA'
 
 			let map
+			let cache
 
 			function init() {
 				map = new mapboxgl.Map({
@@ -47,49 +49,77 @@
 				element.style.display = 'none'
 			}
 
-			setInterval(() => {
-				fetch('http://sample-api.dx.am/')
-					.then(response => response.json())
-					.then(data => {
-						// console.log('API Response: ', data)
-						const statesName = data.map(x => x.name.toString().toLowerCase())
+			async function getData() {
+				try {
+					let response = await fetch('http://sample-api.dx.am/')
+					let data = await response.json()
+					// console.log('API Response: ', data)
+					const statesName = data.map(x => x.name.toString().toLowerCase())
 
-						const result = US_STATES_DATA.filter(x => {
-							const name = x.properties.name.toString().toLowerCase()
-							return statesName.includes(name)
-						})
+					const result = US_STATES_DATA.filter(x => {
+						const name = x.properties.name.toString().toLowerCase()
+						return statesName.includes(name)
+					})
 
-						const resultWithSugar = result.map(x => {
-							const sugar = data.find(
-								item =>
-									item.name.toString().toLowerCase() === x.properties.name.toString().toLowerCase()
-							)
-							return {
-								...x,
-								properties: {
-									...x.properties,
-									...sugar,
-									bgColor: sugar.bgColor ? sugar.bgColor : 'cornflowerblue',
-									textColor: sugar.textColor ? sugar.textColor : '#fff'
-								}
+					const resultWithSugar = result.map(x => {
+						const sugar = data.find(
+							item =>
+								item.name.toString().toLowerCase() === x.properties.name.toString().toLowerCase()
+						)
+						return {
+							...x,
+							properties: {
+								...x.properties,
+								...sugar,
+								bgColor: sugar.bgColor ? sugar.bgColor : 'cornflowerblue',
+								textColor: sugar.textColor ? sugar.textColor : '#fff',
+								short: sugar.short ? sugar.short : x.properties.name
 							}
-						})
+						}
+					})
+					// console.log(resultWithSugar)
+					return resultWithSugar
+				} catch (error) {
+					// catches errors
+					console.log(error)
+				}
+			}
 
-						// console.log(resultWithSugar)
-						// Init map
-						init()
-						// Draw map
-						map.on('load', function() {
-							const currentZoom = map.getZoom()
-							drawMap(currentZoom, resultWithSugar)
-						})
-						// Hide loading
-						hideLoading()
-					})
-					.catch(function(error) {
-						// API server returns any errors
-						console.log(error)
-					})
+			getData().then(mapData => {
+				// Save to cache so that it can be used at the time of zoom in/out
+				cache = mapData
+				// Hide loading only after initial data load
+				hideLoading()
+				// Init map only after initial data load
+				// It will reduce the cost as it's initializing for one time
+				init()
+				// Draw map
+				map.on('load', function() {
+					const currentZoom = map.getZoom()
+					drawMap(currentZoom, mapData)
+				})
+
+				// Adjust font-size and use short name depending on zoom
+				// It will slow the UI
+				// map.on('zoom', () => {
+				// 	const currentZoom = map.getZoom()
+				// 	// Use cache data
+				// 	drawMap(currentZoom, cache)
+				// })
+			})
+
+			// Update everything after every 5s
+			setInterval(() => {
+				getData().then(mapData => {
+					// Update cache so that it can be used at the time of zoom in/out
+					cache = mapData
+					// If map is here, then first render is complete
+					if (map) {
+						// Redraw map after 5sec interval
+						const currentZoom = map.getZoom()
+						drawMap(currentZoom, mapData)
+					}
+				})
 			}, 5000)
 
 			function drawMap(zoom, states) {
@@ -97,7 +127,7 @@
 					// Add Color
 					if (state.properties.bgColor) {
 						map.addLayer({
-							id: state.id + '-color',
+							id: uuidv4(),
 							type: 'fill',
 							source: {
 								type: 'geojson',
@@ -112,9 +142,10 @@
 					}
 					// Add Text
 					if (state.properties.text) {
-						const extension = state.properties.name.toString()
+						const extension =
+							zoom < 4 ? state.properties.short.toString() : state.properties.name.toString()
 						map.addLayer({
-							id: state.id + '-text',
+							id: uuidv4(),
 							type: 'symbol',
 							source: {
 								type: 'geojson',
@@ -123,7 +154,7 @@
 							layout: {
 								'text-field': state.properties.text.toString() + '\n' + extension,
 								'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-								'text-size': 14
+								'text-size': zoom < 4 ? 10 : 14
 							},
 							paint: {
 								'text-color': state.properties.textColor
