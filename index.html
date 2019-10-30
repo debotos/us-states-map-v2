@@ -34,7 +34,6 @@
 				'pk.eyJ1IjoiZGVib3RvcyIsImEiOiJjanpmYXh0amYwYWhlM2pvNTdtamVtbXlqIn0.00E9hzDuT2nyeHF4LMlQAA'
 
 			let map
-			let cache
 
 			function init() {
 				map = new mapboxgl.Map({
@@ -86,8 +85,6 @@
 			}
 
 			getData().then(mapData => {
-				// Save to cache so that it can be used at the time of zoom in/out
-				cache = mapData
 				// Hide loading only after initial data load
 				hideLoading()
 				// Init map only after initial data load
@@ -98,21 +95,11 @@
 					const currentZoom = map.getZoom()
 					drawMap(currentZoom, mapData)
 				})
-
-				// Adjust font-size and use short name depending on zoom
-				// It will slow the UI
-				// map.on('zoom', () => {
-				// 	const currentZoom = map.getZoom()
-				// 	// Use cache data
-				// 	drawMap(currentZoom, cache)
-				// })
 			})
 
 			// Update everything after every 5s
 			setInterval(() => {
 				getData().then(mapData => {
-					// Update cache so that it can be used at the time of zoom in/out
-					cache = mapData
 					// If map is here, then first render is complete
 					if (map) {
 						// Redraw map after 5sec interval
