@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Draw GeoJSON points</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js"></script>
+		<link href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css" rel="stylesheet" />
+		<style>
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			#map {
+				position: absolute;
+				top: 0;
+				bottom: 0;
+				width: 100%;
+			}
+		</style>
+		<script src="states.js"></script>
+	</head>
+	<body>
+		<div id="map"></div>
+		<div
+			id="loading"
+			style="height: 100vh; display: flex; justify-content: center; align-items: center;"
+		>
+			<img src="./loading.gif" height="250" width="250" />
+		</div>
+		<script>
+			mapboxgl.accessToken =
+				'pk.eyJ1IjoiZGVib3RvcyIsImEiOiJjanpmYXh0amYwYWhlM2pvNTdtamVtbXlqIn0.00E9hzDuT2nyeHF4LMlQAA'
+
+			let map
+
+			function init() {
+				map = new mapboxgl.Map({
+					container: 'map',
+					style: 'mapbox://styles/mapbox/light-v10',
+					center: [-87.6500523, 41.850033], // US
+					zoom: 4
+				})
+			}
+			function hideLoading() {
+				const element = document.querySelector('#loading')
+				element.style.display = 'none'
+			}
+
+			fetch('http://sample-api.dx.am/')
+				.then(response => response.json())
+				.then(data => {
+					// console.log('API Response: ', data)
+					const statesName = data.map(x => x.name.toString().toLowerCase())
+
+					const result = US_STATES_DATA.filter(x => {
+						const name = x.properties.name.toString().toLowerCase()
+						return statesName.includes(name)
+					})
+
+					const resultWithSugar = result.map(x => {
+						const sugar = data.find(
+							item =>
+								item.name.toString().toLowerCase() === x.properties.name.toString().toLowerCase()
+						)
+						return {
+							...x,
+							properties: {
+								...x.properties,
+								...sugar,
+								bgColor: sugar.bgColor ? sugar.bgColor : 'cornflowerblue',
+								textColor: sugar.textColor ? sugar.textColor : '#fff'
+							}
+						}
+					})
+
+					// console.log(resultWithSugar)
+					// Init map
+					init()
+					// Draw map
+					map.on('load', function() {
+						const currentZoom = map.getZoom()
+						drawMap(currentZoom, resultWithSugar)
+					})
+					// Hide loading
+					hideLoading()
+				})
+				.catch(function(error) {
+					// API server returns any errors
+					console.log(error)
+				})
+
+			function drawMap(zoom, states) {
+				states.map((state, i) => {
+					// Add Color
+					if (state.properties.bgColor) {
+						map.addLayer({
+							id: state.id + '-color',
+							type: 'fill',
+							source: {
+								type: 'geojson',
+								data: state
+							},
+							layout: {},
+							paint: {
+								'fill-color': state.properties.bgColor,
+								'fill-opacity': 1
+							}
+						})
+					}
+					// Add Text
+					if (state.properties.text) {
+						const extension = state.properties.name.toString()
+						map.addLayer({
+							id: state.id + '-text',
+							type: 'symbol',
+							source: {
+								type: 'geojson',
+								data: state
+							},
+							layout: {
+								'text-field': state.properties.text.toString() + '\n' + extension,
+								'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+								'text-size': 14
+							},
+							paint: {
+								'text-color': state.properties.textColor ? state.properties.textColor : '#000'
+							}
+						})
+					}
+				})
+			}
+		</script>
+	</body>
+</html>
